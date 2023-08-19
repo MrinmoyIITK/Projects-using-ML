@@ -1,0 +1,211 @@
+import streamlit as st
+import pandas as pd
+import seaborn as sns
+from sklearn.model_selection import train_test_split
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.naive_bayes import GaussianNB
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier
+from sklearn.svm import SVC
+from sklearn.metrics import precision_score, recall_score, f1_score
+import xgboost as xgb
+import catboost as cb
+
+def main():
+    st.title("Binary Classifier Comparison")
+    st.write("Upload a CSV file with labeled data with no missing values.")
+    st.write("After doing data cleaning and preprocessing this app can be used.")
+    file = st.sidebar.file_uploader("Upload CSV", type="csv")
+    if file is not None:
+        df = pd.read_csv(file)
+        st.dataframe(df)
+        X = df.iloc[:, :-1]  # Use all columns except the last one as features
+        y = df.iloc[:, -1]   # Use the last column as the target labels
+        class_label = df.columns[-1]
+
+        # Show the option to choose between "Implement" and "Compare"
+        task = st.sidebar.selectbox("Select Task", ["Implement", "Compare"])
+
+        if task == "Implement":
+            algorithm_type = st.sidebar.selectbox("Select Algorithm Type", ["Classic", "Boosting"])
+
+            # Implement the chosen model on the whole dataset
+            if algorithm_type == "Classic":
+                # Choose the classifier
+                classifier_name = st.sidebar.selectbox("Select Classifier", ["k-NN", "Logistic Regression", "Naive Bayes",
+                                                                            "Decision Tree", "Random Forest", "SVM"])
+
+                # Train the selected classifier on the whole dataset
+                if classifier_name == "k-NN":
+                    k = st.sidebar.slider("Choose k value", min_value=1, max_value=10)
+                    classifier = KNeighborsClassifier(n_neighbors=k)
+                elif classifier_name == "Logistic Regression":
+                    classifier = LogisticRegression()
+                elif classifier_name == "Naive Bayes":
+                    classifier = GaussianNB()
+                elif classifier_name == "Decision Tree":
+                    classifier = DecisionTreeClassifier()
+                elif classifier_name == "Random Forest":
+                    classifier = RandomForestClassifier()
+                elif classifier_name == "SVM":
+                    classifier = SVC()
+
+                classifier.fit(X, y)
+                st.write(f"{classifier_name} Classifier is trained on the whole dataset.")
+
+                # Upload the test set for making predictions
+                test_file = st.sidebar.file_uploader("Upload Test Set (CSV)", type="csv")
+                if test_file is not None:
+                    test_df = pd.read_csv(test_file)
+                    st.dataframe(test_df)
+
+                    # Use the same features as in training for the test set
+                    test_X = test_df.iloc[:, :]
+
+                    # Make predictions on the test set
+                    test_y_pred = classifier.predict(test_X)
+
+                    # Add the predicted column to the test set and show the updated dataframe
+                    test_df['Predicted'] = test_y_pred
+                    st.subheader("Test Set with Predicted Column")
+                    st.dataframe(test_df)
+
+            elif algorithm_type == "Boosting":
+                # Choose the boosting classifier
+                boosting_classifier = st.sidebar.selectbox("Select Boosting Classifier", ["AdaBoost", "XGBoost", "CatBoost"])
+
+                # Train the selected boosting classifier on the whole dataset
+                if boosting_classifier == "AdaBoost":
+                    classifier = AdaBoostClassifier()
+                elif boosting_classifier == "XGBoost":
+                    classifier = xgb.XGBClassifier()
+                elif boosting_classifier == "CatBoost":
+                    classifier = cb.CatBoostClassifier()
+
+                classifier.fit(X, y)
+                st.write(f"{boosting_classifier} Classifier is trained on the whole dataset .")
+
+                # Upload the test set for making predictions
+                test_file = st.sidebar.file_uploader("Upload Test Set (CSV)", type="csv")
+                if test_file is not None:
+                    st.write("Uploaded file by the user")
+                    test_df = pd.read_csv(test_file)
+                    st.dataframe(test_df)
+
+                    # Use the same features as in training for the test set
+                    test_X = test_df.iloc[:, :]
+
+                    # Make predictions on the test set
+                    test_y_pred = classifier.predict(test_X)
+
+                    # Add the predicted column to the test set and show the updated dataframe
+                    test_df['Predicted'] = test_y_pred
+                    st.subheader("Test Set with Predicted Column")
+                    st.dataframe(test_df)
+
+        elif task == "Compare":
+            test_size = st.slider("Choose test size", min_value=0.1, max_value=0.5, step=0.1)
+            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=42)
+
+            # Count plot of the labels
+            st.subheader("Class Label Count")
+            countplot = sns.countplot(x=class_label, data=df)
+            st.pyplot(countplot.figure)
+
+            # Choose between "Classic" and "Boosting" algorithms
+            algorithm_type = st.sidebar.selectbox("Select Algorithm Type", ["Classic", "Boosting"])
+
+            if algorithm_type == "Classic":
+                # Classic algorithms
+                st.header("Classic Algorithms")
+                # k-NN
+                st.header("k-NN Classifier")
+                k = st.slider("Choose k value", min_value=1, max_value=10)
+                knn_classifier = KNeighborsClassifier(n_neighbors=k)
+                knn_classifier.fit(X_train, y_train)
+                knn_y_pred = knn_classifier.predict(X_test)
+                st.write("k-NN Precision:", precision_score(y_test, knn_y_pred, average='weighted'))
+                st.write("k-NN Recall:", recall_score(y_test, knn_y_pred, average='weighted'))
+                st.write("k-NN F1-Score:", f1_score(y_test, knn_y_pred, average='weighted'))
+
+                # Logistic Regression
+                st.header("Logistic Regression Classifier")
+                logistic_regression = LogisticRegression()
+                logistic_regression.fit(X_train, y_train)
+                lr_y_pred = logistic_regression.predict(X_test)
+                st.write("Logistic Regression Precision:", precision_score(y_test, lr_y_pred, average='weighted'))
+                st.write("Logistic Regression Recall:", recall_score(y_test, lr_y_pred, average='weighted'))
+                st.write("Logistic Regression F1-Score:", f1_score(y_test, lr_y_pred, average='weighted'))
+
+                # Naive Bayes
+                st.header("Naive Bayes Classifier")
+                naive_bayes = GaussianNB()
+                naive_bayes.fit(X_train, y_train)
+                nb_y_pred = naive_bayes.predict(X_test)
+                st.write("Naive Bayes Precision:", precision_score(y_test, nb_y_pred, average='weighted'))
+                st.write("Naive Bayes Recall:", recall_score(y_test, nb_y_pred, average='weighted'))
+                st.write("Naive Bayes F1-Score:", f1_score(y_test, nb_y_pred, average='weighted'))
+
+                # Decision Tree
+                st.header("Decision Tree Classifier")
+                decision_tree = DecisionTreeClassifier()
+                decision_tree.fit(X_train, y_train)
+                dt_y_pred = decision_tree.predict(X_test)
+                st.write("Decision Tree Precision:", precision_score(y_test, dt_y_pred, average='weighted'))
+                st.write("Decision Tree Recall:", recall_score(y_test, dt_y_pred, average='weighted'))
+                st.write("Decision Tree F1-Score:", f1_score(y_test, dt_y_pred, average='weighted'))
+
+                # Random Forest
+                st.header("Random Forest Classifier")
+                random_forest = RandomForestClassifier()
+                random_forest.fit(X_train, y_train)
+                rf_y_pred = random_forest.predict(X_test)
+                st.write("Random Forest Precision:", precision_score(y_test, rf_y_pred, average='weighted'))
+                st.write("Random Forest Recall:", recall_score(y_test, rf_y_pred, average='weighted'))
+                st.write("Random Forest F1-Score:", f1_score(y_test, rf_y_pred, average='weighted'))
+
+                # Support Vector Machines
+                st.header("Support Vector Classifier")
+                support_vector = SVC()
+                support_vector.fit(X_train, y_train)
+                sv_y_pred = support_vector.predict(X_test)
+                st.write("Support Vector Precision:", precision_score(y_test, sv_y_pred, average='weighted'))
+                st.write("Support Vector Recall:", recall_score(y_test, sv_y_pred, average='weighted'))
+                st.write("Support Vector F1-Score:", f1_score(y_test, sv_y_pred, average='weighted'))
+
+            elif algorithm_type == "Boosting":
+                # Boosting algorithms
+                st.header("Boosting Algorithms")
+                # AdaBoost
+                st.header("AdaBoost Classifier")
+                ada_classifier = AdaBoostClassifier()
+                ada_classifier.fit(X_train, y_train)
+                ada_y_pred = ada_classifier.predict(X_test)
+                st.write("AdaBoost Precision:", precision_score(y_test, ada_y_pred, average='weighted'))
+                st.write("AdaBoost Recall:", recall_score(y_test, ada_y_pred, average='weighted'))
+                st.write("AdaBoost F1-Score:", f1_score(y_test, ada_y_pred, average='weighted'))
+
+                # XGBoost
+                st.header("XGBoost Classifier")
+                xgb_classifier = xgb.XGBClassifier()
+                xgb_classifier.fit(X_train, y_train)
+                xgb_y_pred = xgb_classifier.predict(X_test)
+                st.write("XGBoost Precision:", precision_score(y_test, xgb_y_pred, average='weighted'))
+                st.write("XGBoost Recall:", recall_score(y_test, xgb_y_pred, average='weighted'))
+                st.write("XGBoost F1-Score:", f1_score(y_test, xgb_y_pred, average='weighted'))
+
+                # CatBoost
+                st.header("CatBoost Classifier")
+                cat_classifier = cb.CatBoostClassifier()
+                cat_classifier.fit(X_train, y_train)
+                cat_y_pred = cat_classifier.predict(X_test)
+                st.write("CatBoost Precision:", precision_score(y_test, cat_y_pred, average='weighted'))
+                st.write("CatBoost Recall:", recall_score(y_test, cat_y_pred, average='weighted'))
+                st.write("CatBoost F1-Score:", f1_score(y_test, cat_y_pred, average='weighted'))
+
+
+
+
+if __name__ == '__main__':
+    main()
